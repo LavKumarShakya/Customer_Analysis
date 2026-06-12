@@ -1,49 +1,46 @@
 {% extends "base.html" %}
 {% block title %}Analytics — Smart Retail Analytics{% endblock %}
-{% block breadcrumb %}Analytics{% endblock %}
 
 {% block content %}
+
+<!-- Page Header -->
 <div class="page-header">
-  <div class="page-header-crumb">🛍️ Smart Retail Analytics</div>
-  <h1>📉 Analytics</h1>
-  <p>Deep-dive visualisations across customer segments, RFM distributions, and revenue intelligence</p>
+  <div class="page-eyebrow">📊 Deep Dive</div>
+  <h1>Analytics</h1>
+  <p>Detailed visualisations across customer segments, RFM distributions, and revenue intelligence</p>
 </div>
 
 {% if error %}
-<div class="alert-custom alert-warn">
+<div class="alert-box alert-warn">
   <i class="bi bi-exclamation-triangle-fill"></i>
   <span>Customer data is unavailable — please check that <code>customer_segments.csv</code> is present.</span>
 </div>
 {% else %}
 
-<!-- ── Tab navigation ── -->
-<ul class="nav nav-tabs-custom" id="analyticsTabs" role="tablist">
-  <li class="nav-item" role="presentation">
-    <button class="nav-link active" id="tab-overview" data-bs-toggle="tab"
-            data-bs-target="#overview" role="tab">
-      <i class="bi bi-pie-chart me-1"></i> Overview
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link" id="tab-rfm" data-bs-toggle="tab"
-            data-bs-target="#rfm" role="tab">
-      <i class="bi bi-bar-chart me-1"></i> RFM Analysis
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link" id="tab-revenue" data-bs-toggle="tab"
-            data-bs-target="#revenue" role="tab">
-      <i class="bi bi-currency-pound me-1"></i> Revenue Intelligence
-    </button>
-  </li>
-</ul>
+<!-- Tab Navigation -->
+<div class="tab-nav" role="tablist">
+  <button class="tab-btn active" id="tab-overview" data-bs-toggle="tab"
+          data-bs-target="#overview" type="button" role="tab"
+          aria-controls="overview" aria-selected="true">
+    <i class="bi bi-pie-chart"></i> Overview
+  </button>
+  <button class="tab-btn" id="tab-rfm" data-bs-toggle="tab"
+          data-bs-target="#rfm" type="button" role="tab"
+          aria-controls="rfm" aria-selected="false">
+    <i class="bi bi-bar-chart"></i> RFM Analysis
+  </button>
+  <button class="tab-btn" id="tab-revenue" data-bs-toggle="tab"
+          data-bs-target="#revenue" type="button" role="tab"
+          aria-controls="revenue" aria-selected="false">
+    <i class="bi bi-currency-pound"></i> Revenue Intelligence
+  </button>
+</div>
 
-<!-- ── Tab Content ── -->
+<!-- Tab Content -->
 <div class="tab-content">
 
-  <!-- ════ TAB 1: OVERVIEW ════ -->
+  <!-- TAB 1: OVERVIEW -->
   <div class="tab-pane fade show active" id="overview" role="tabpanel">
-
     <div class="row g-4 mb-4">
       <div class="col-lg-6">
         <div class="glass-card">
@@ -53,70 +50,59 @@
       </div>
       <div class="col-lg-6">
         <div class="glass-card">
-          <div class="section-title"><i class="bi bi-trophy-fill"></i> Top 10 Customers by LTV</div>
+          <div class="section-title"><i class="bi bi-trophy-fill"></i> Top 10 Customers by Spend</div>
           <div id="chartTop" class="chart-wrap"></div>
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- ════ TAB 2: RFM ANALYSIS ════ -->
+  <!-- TAB 2: RFM ANALYSIS -->
   <div class="tab-pane fade" id="rfm" role="tabpanel">
-
     <div class="row g-4 mb-4">
-      <!-- Recency -->
       <div class="col-12">
         <div class="glass-card">
           <div class="section-title"><i class="bi bi-calendar-event"></i> Recency Distribution</div>
           <div id="chartRec" class="chart-wrap"></div>
         </div>
       </div>
-      <!-- Frequency -->
       <div class="col-12">
         <div class="glass-card">
           <div class="section-title"><i class="bi bi-arrow-repeat"></i> Frequency Distribution</div>
           <div id="chartFrq" class="chart-wrap"></div>
         </div>
       </div>
-      <!-- Box plot -->
       <div class="col-12">
         <div class="glass-card">
-          <div class="section-title"><i class="bi bi-box"></i> Monetary Value by Segment (Box Plot)</div>
+          <div class="section-title"><i class="bi bi-box"></i> Spend Distribution by Segment</div>
           <div id="chartBox" class="chart-wrap"></div>
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- ════ TAB 3: REVENUE INTELLIGENCE ════ -->
+  <!-- TAB 3: REVENUE INTELLIGENCE -->
   <div class="tab-pane fade" id="revenue" role="tabpanel">
-
     <div class="row g-4 mb-4">
-      <!-- Scatter -->
       <div class="col-12">
         <div class="glass-card">
-          <div class="section-title"><i class="bi bi-scatter-chart"></i> Recency vs. Monetary Value</div>
+          <div class="section-title"><i class="bi bi-scatter-chart"></i> Recency vs. Lifetime Spend</div>
           <div id="chartScat" class="chart-wrap"></div>
         </div>
       </div>
-      <!-- Treemap -->
       <div class="col-12">
         <div class="glass-card">
-          <div class="section-title"><i class="bi bi-grid-3x3-gap-fill"></i> Revenue Contribution Treemap</div>
+          <div class="section-title"><i class="bi bi-grid-3x3-gap-fill"></i> Revenue Contribution — Top 20</div>
           <div id="chartTree" class="chart-wrap"></div>
         </div>
       </div>
-      <!-- Frequency bucket -->
       <div class="col-12">
         <div class="glass-card">
-          <div class="section-title"><i class="bi bi-bar-chart-fill"></i> Avg LTV by Purchase Frequency Bucket</div>
+          <div class="section-title"><i class="bi bi-bar-chart-fill"></i> Avg Spend by Purchase Frequency</div>
           <div id="chartBkt" class="chart-wrap"></div>
         </div>
       </div>
     </div>
-
   </div>
 
 </div><!-- tab-content -->
@@ -129,26 +115,34 @@
   renderChart('chartPie', {{ chart_pie | tojson }});
   renderChart('chartTop', {{ chart_top | tojson }});
 
-  /* RFM charts — render when tab becomes visible (avoid invisible-div size bug) */
-  let rfmRendered = false;
-  document.getElementById('tab-rfm').addEventListener('shown.bs.tab', function () {
-    if (!rfmRendered) {
+  /* Sync active class on custom tab buttons */
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', () => {
+      document.querySelectorAll('[data-bs-toggle="tab"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  /* RFM charts — lazy render when tab opens (fixes invisible-div sizing bug) */
+  let rfmDone = false;
+  document.getElementById('tab-rfm').addEventListener('shown.bs.tab', () => {
+    if (!rfmDone) {
       renderChart('chartRec', {{ chart_rec | tojson }});
       renderChart('chartFrq', {{ chart_frq | tojson }});
       renderChart('chartBox', {{ chart_box | tojson }});
-      rfmRendered = true;
+      rfmDone = true;
     }
   });
 
-  /* Revenue charts */
-  let revRendered = false;
-  document.getElementById('tab-revenue').addEventListener('shown.bs.tab', function () {
-    if (!revRendered) {
+  let revDone = false;
+  document.getElementById('tab-revenue').addEventListener('shown.bs.tab', () => {
+    if (!revDone) {
       renderChart('chartScat', {{ chart_scat | tojson }});
       renderChart('chartTree', {{ chart_tree | tojson }});
       renderChart('chartBkt',  {{ chart_bkt  | tojson }});
-      revRendered = true;
+      revDone = true;
     }
   });
+
 </script>
 {% endblock %}
