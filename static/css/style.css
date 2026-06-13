@@ -525,6 +525,12 @@ body {
   color: #6ee7b7;
 }
 
+.alert-risk {
+  background: rgba(239, 68, 68, .08);
+  border-color: rgba(239, 68, 68, .3);
+  color: #fca5a5;
+}
+
 /* ── SEGMENT BADGES ──────────────────────────────────────────── */
 .seg-badge {
   display: inline-flex;

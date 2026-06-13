@@ -13,6 +13,8 @@ import json
 import re
 import warnings
 import sqlite3
+import datetime
+import random
 
 import joblib
 import numpy as np
@@ -681,8 +683,103 @@ def nba_route():
     )
 
 
+@app.route("/api/forecast", methods=["POST"])
+def api_forecast():
+    """
+    Model-agnostic forecasting endpoint.
+    Returns high-quality mock data for UI testing/demonstration.
+    """
+    import datetime
+    import random
+
+    data = request.json
+    product = data.get("product", "Sample Product")
+    horizon = int(data.get("horizon", 3))
+    model_type = data.get("model", "Prophet")
+
+    # Generate 24 months of historical data
+    today = datetime.date.today()
+    hist_start = today - datetime.timedelta(days=730)
+    historical = []
+    current_val = random.randint(100, 200)
+    
+    for i in range(24):
+        date = (hist_start + datetime.timedelta(days=i*30)).strftime("%Y-%m-%d")
+        # Add some seasonality and noise
+        current_val += random.randint(-20, 30)
+        current_val = max(50, current_val)
+        historical.append({"date": date, "value": current_val})
+
+    # Generate Forecast data
+    forecast = []
+    last_val = historical[-1]["value"]
+    trend = 1.05 if random.random() > 0.4 else 0.95 # 60% chance of upward trend
+    
+    for i in range(1, horizon + 1):
+        date = (today + datetime.timedelta(days=i*30)).strftime("%Y-%m-%d")
+        last_val = int(last_val * trend + random.randint(-10, 10))
+        lower = int(last_val * 0.85)
+        upper = int(last_val * 1.15)
+        forecast.append({
+            "date": date,
+            "value": last_val,
+            "lower": lower,
+            "upper": upper
+        })
+
+    # Summary Metrics
+    total_forecast = sum(f["value"] for f in forecast)
+    growth = ((forecast[-1]["value"] / historical[-1]["value"]) - 1) * 100
+    confidence = random.randint(82, 96)
+    peak_item = max(forecast, key=lambda x: x["value"])
+
+    # Alerts & Recommendations
+    alerts = []
+    if trend > 1.02:
+        alerts.append({
+            "type": "warning",
+            "message": f"High demand spike predicted for {product} in {peak_item['date']}. Stockout risk: HIGH."
+        })
+    if random.random() > 0.7:
+        alerts.append({
+            "type": "danger",
+            "message": f"Current inventory for {product} will not meet {horizon}-month forecasted demand."
+        })
+
+    recommendations = [
+        {
+            "date": (today + datetime.timedelta(days=7)).strftime("%Y-%m-%d"),
+            "action": "Restock",
+            "quantity": int(total_forecast * 0.4)
+        },
+        {
+            "date": (today + datetime.timedelta(days=45)).strftime("%Y-%m-%d"),
+            "action": "Buffer Increase",
+            "quantity": int(total_forecast * 0.15)
+        }
+    ]
+
+    return {
+        "status": "success",
+        "data": {
+            "historical": historical,
+            "forecast": forecast,
+            "summary": {
+                "total": f"{total_forecast:,}",
+                "growth": f"{growth:+.1f}%",
+                "confidence": f"{confidence}%",
+                "peak_date": peak_item["date"],
+                "peak_value": f"{peak_item['value']:,}",
+                "risk": "High" if trend > 1.02 else "Normal"
+            },
+            "alerts": alerts,
+            "recommendations": recommendations
+        }
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════
-# ROUTE  5 — ANALYTICS
+# ROUTE  6 — ANALYTICS
 # ═══════════════════════════════════════════════════════════════════════════
 @app.route("/analytics")
 def analytics():

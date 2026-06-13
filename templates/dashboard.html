@@ -167,6 +167,132 @@
   </div>
 </div>
 
+<!-- ── DEMAND FORECASTING SECTION (REFINED) ── -->
+<section id="df-module" class="glass-card mb-4 mt-4">
+  <div class="section-title d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-graph-up"></i> Demand Forecasting Workbench</span>
+    <div id="df-loadingIndicator" style="display: none;">
+      <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+      <span class="ms-2 small text-muted">Calculating...</span>
+    </div>
+  </div>
+
+  <!-- Error Zone -->
+  <div id="df-errorZone" class="px-3" style="display: none;">
+    <div class="alert alert-danger py-2 small d-flex align-items-center">
+      <i class="bi bi-exclamation-octagon me-2"></i>
+      <span id="df-errorMessage"></span>
+      <button type="button" class="btn-close ms-auto" style="font-size: 0.65rem;" onclick="document.getElementById('df-errorZone').style.display='none'"></button>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="p-3 mb-3 border-bottom border-secondary-subtle">
+    <form id="df-forecastForm" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">PRODUCT</label>
+        <select class="form-select bg-dark text-white border-secondary shadow-none" id="df-productSelect" required>
+          <option value="" disabled selected>Select a product...</option>
+          <option value="UltraView 4K Monitor">UltraView 4K Monitor</option>
+          <option value="HomeBrew Coffee Maker">HomeBrew Coffee Maker</option>
+          <option value="CloudStep Running Shoes">CloudStep Running Shoes</option>
+          <option value="GlowRadiance Face Serum">GlowRadiance Face Serum</option>
+          <option value="FlexiFit Yoga Mat">FlexiFit Yoga Mat</option>
+          <option value="PowerCore 20k Power Bank">PowerCore 20k Power Bank</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">HORIZON</label>
+        <select class="form-select bg-dark text-white border-secondary shadow-none" id="df-horizonSelect">
+          <option value="1">1 Month</option>
+          <option value="3" selected>3 Months</option>
+          <option value="6">6 Months</option>
+          <option value="12">12 Months</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label text-muted small fw-bold">MODEL</label>
+        <select class="form-select bg-dark text-white border-secondary shadow-none" id="df-modelSelect">
+          <option value="Prophet">Prophet (Meta)</option>
+          <option value="ARIMA">ARIMA</option>
+          <option value="XGBoost">XGBoost</option>
+          <option value="LSTM">LSTM (Deep Learning)</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" id="df-generateBtn">
+          <i class="bi bi-magic me-2"></i>Generate Forecast
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="row g-3 mb-4 px-3" id="df-kpiRow" style="display: none;">
+    <div class="col-md-3">
+      <div class="p-3 border border-secondary rounded bg-opacity-10 bg-white text-center">
+        <div class="small text-muted text-uppercase fw-bold mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Projected Volume</div>
+        <div class="h4 mb-0 fw-black text-white" id="df-kpiVolume">—</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="p-3 border border-secondary rounded bg-opacity-10 bg-white text-center">
+        <div class="small text-muted text-uppercase fw-bold mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Expected Growth</div>
+        <div class="h4 mb-0 fw-black text-white" id="df-kpiGrowth">—</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="p-3 border border-secondary rounded bg-opacity-10 bg-white text-center">
+        <div class="small text-muted text-uppercase fw-bold mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Peak Demand</div>
+        <div class="h4 mb-0 fw-black text-white" id="df-kpiPeakDate">—</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="p-3 border border-secondary rounded bg-opacity-10 bg-white text-center">
+        <div class="small text-muted text-uppercase fw-bold mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Risk Status</div>
+        <div class="h4 mb-0 fw-black" id="df-kpiRisk">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart Area -->
+  <div class="px-3 position-relative">
+    <div id="df-chartOverlay" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center rounded" style="background: rgba(8,14,26,0.6); z-index: 5; display: none !important;">
+       <div class="spinner-border text-primary" role="status"></div>
+    </div>
+    <div id="df-forecastChart" class="chart-wrap mb-4" style="height: 400px;">
+      <div class="d-flex align-items-center justify-content-center h-100 text-muted border border-secondary border-dashed rounded bg-dark bg-opacity-25">
+        <div class="text-center">
+          <i class="bi bi-graph-up display-6 mb-2"></i>
+          <p class="small">Select a product above to generate demand predictions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Insights Footer -->
+  <div class="row g-4 px-3 pb-3" id="df-insightsRow" style="display: none;">
+    <div class="col-lg-6 border-end border-secondary border-opacity-25">
+      <div class="small fw-bold text-uppercase text-indigo mb-3"><i class="bi bi-shield-exclamation me-1"></i> Stock Risk Alerts</div>
+      <div id="df-alertsContainer" class="pe-lg-3"></div>
+    </div>
+    <div class="col-lg-6">
+      <div class="small fw-bold text-uppercase text-emerald mb-3"><i class="bi bi-cart-check me-1"></i> Inventory Recommendations</div>
+      <div class="table-responsive">
+        <table class="data-table small">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Action</th>
+              <th class="text-end">Quantity</th>
+            </tr>
+          </thead>
+          <tbody id="df-recommendationsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
 {% endif %}
 {% endblock %}
 
@@ -187,5 +313,162 @@
 
   renderChart('donutChart', document.getElementById('_donutData').textContent);
   renderChart('revChart',   document.getElementById('_revData').textContent);
+
+  /**
+   * ── Demand Forecasting Module Controller ──
+   * Managed state and actions for the forecasting section.
+   */
+  const ForecastModule = {
+    elements: {
+      form: document.getElementById('df-forecastForm'),
+      generateBtn: document.getElementById('df-generateBtn'),
+      loadingIndicator: document.getElementById('df-loadingIndicator'),
+      chartOverlay: document.getElementById('df-chartOverlay'),
+      errorZone: document.getElementById('df-errorZone'),
+      errorMessage: document.getElementById('df-errorMessage'),
+      kpiRow: document.getElementById('df-kpiRow'),
+      insightsRow: document.getElementById('df-insightsRow'),
+      chartContainer: document.getElementById('df-forecastChart'),
+      recommendationsTable: document.getElementById('df-recommendationsTable'),
+      alertsContainer: document.getElementById('df-alertsContainer')
+    },
+
+    init() {
+      if (!this.elements.form) return;
+      this.elements.form.addEventListener('submit', (e) => this.handleGenerate(e));
+    },
+
+    setLoading(isLoading) {
+      const { generateBtn, loadingIndicator, chartOverlay } = this.elements;
+      generateBtn.disabled = isLoading;
+      generateBtn.innerHTML = isLoading 
+        ? `<span class="spinner-border spinner-border-sm me-2"></span>Generating...` 
+        : `<i class="bi bi-magic me-2"></i>Generate Forecast`;
+      
+      loadingIndicator.style.display = isLoading ? 'block' : 'none';
+      if (chartOverlay) chartOverlay.style.setProperty('display', isLoading ? 'flex' : 'none', 'important');
+    },
+
+    showError(msg) {
+      this.elements.errorMessage.textContent = msg || 'An unexpected error occurred.';
+      this.elements.errorZone.style.display = 'block';
+      this.setLoading(false);
+      window.scrollTo({ top: this.elements.errorZone.offsetTop - 100, behavior: 'smooth' });
+    },
+
+    async handleGenerate(e) {
+      e.preventDefault();
+      this.elements.errorZone.style.display = 'none';
+      
+      const payload = {
+        product: document.getElementById('df-productSelect').value,
+        horizon: document.getElementById('df-horizonSelect').value,
+        model: document.getElementById('df-modelSelect').value
+      };
+
+      if (!payload.product) return this.showError('Please select a product first.');
+
+      this.setLoading(true);
+
+      try {
+        const response = await fetch('/api/forecast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+        
+        const result = await response.json();
+        if (result.status === 'success') {
+          this.render(result.data);
+        } else {
+          throw new Error(result.message || 'API returned an error state.');
+        }
+      } catch (err) {
+        console.error('Forecast Error:', err);
+        this.showError(`System error: ${err.message}`);
+      } finally {
+        this.setLoading(false);
+      }
+    },
+
+    render(data) {
+      const { kpiRow, insightsRow, recommendationsTable, alertsContainer } = this.elements;
+      
+      // 1. Show Hidden Sections
+      kpiRow.style.display = 'flex';
+      insightsRow.style.display = 'flex';
+
+      // 2. Update KPIs
+      document.getElementById('df-kpiVolume').textContent = data.summary.total;
+      document.getElementById('df-kpiGrowth').textContent = data.summary.growth;
+      document.getElementById('df-kpiPeakDate').textContent = new Date(data.summary.peak_date).toLocaleDateString('en-GB', {month:'short', year:'numeric'});
+      
+      const riskEl = document.getElementById('df-kpiRisk');
+      riskEl.textContent = data.summary.risk;
+      riskEl.className = `h4 mb-0 fw-black ${data.summary.risk === 'High' ? 'text-danger' : 'text-success'}`;
+
+      // 3. Draw Chart
+      this.drawChart(data.historical, data.forecast);
+
+      // 4. Alerts
+      alertsContainer.innerHTML = data.alerts.length 
+        ? data.alerts.map(a => `
+            <div class="alert-box alert-${a.type === 'danger' ? 'risk' : 'warn'} mb-2 py-2 px-3 small">
+              <i class="bi bi-exclamation-circle me-2"></i><span>${a.message}</span>
+            </div>`).join('') 
+        : '<p class="text-muted small text-center p-2">No active risks detected.</p>';
+
+      // 5. Recommendations
+      recommendationsTable.innerHTML = data.recommendations.map(r => `
+        <tr>
+          <td>${new Date(r.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short'})}</td>
+          <td><span class="seg-badge seg-reg py-0 px-2" style="font-size: 0.65rem;">${r.action}</span></td>
+          <td class="text-end fw-bold">${r.quantity.toLocaleString()}</td>
+        </tr>`).join('');
+    },
+
+    drawChart(historical, forecast) {
+      const traceHist = {
+        x: historical.map(d => d.date),
+        y: historical.map(d => d.value),
+        name: 'Historical', type: 'scatter', mode: 'lines',
+        line: { color: '#3b82f6', width: 2.5 }
+      };
+      
+      const traceFore = {
+        x: forecast.map(d => d.date),
+        y: forecast.map(d => d.value),
+        name: 'Forecast', type: 'scatter', mode: 'lines',
+        line: { color: '#a855f7', width: 2.5, dash: 'dash' }
+      };
+
+      const traceCI = {
+        x: [...forecast.map(d => d.date), ...[...forecast].reverse().map(d => d.date)],
+        y: [...forecast.map(d => d.upper), ...[...forecast].reverse().map(d => d.lower)],
+        fill: 'toself', 
+        fillcolor: 'rgba(168, 85, 247, 0.08)',
+        line: { color: 'transparent' }, 
+        name: 'Confidence Interval', 
+        showlegend: false
+      };
+
+      const layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'Inter', color: '#94a3b8', size: 11 },
+        margin: { l: 45, r: 15, t: 10, b: 40 },
+        hovermode: 'x unified',
+        xaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)' },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)', title: { text: 'Units', font: { size: 10 } } },
+        legend: { orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center', font: { size: 10 } }
+      };
+
+      Plotly.react('df-forecastChart', [traceCI, traceHist, traceFore], layout, { responsive: true, displayModeBar: false });
+    }
+  };
+
+  ForecastModule.init();
 </script>
 {% endblock %}

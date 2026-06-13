@@ -17,16 +17,8 @@
   <form method="POST" action="{{ url_for('insights') }}" id="searchForm">
     <div class="search-row">
       <div class="input-wrap">
-        <input
-          type="text"
-          name="customer_id"
-          id="customerIdInput"
-          class="input-custom"
-          placeholder="e.g. {{ id_range.min }}"
-          value="{{ cid_value }}"
-          autocomplete="off"
-          autofocus
-        >
+        <input type="text" name="customer_id" id="customerIdInput" class="input-custom"
+          placeholder="e.g. {{ id_range.min }}" value="{{ cid_value }}" autocomplete="off" autofocus>
         <i class="bi bi-search input-icon"></i>
       </div>
       <button type="submit" class="btn-primary" id="searchBtn">
@@ -66,15 +58,15 @@
   <div class="empty-state">
     <div class="empty-state-icon">🔍</div>
     <h3>Search for a Customer</h3>
-    <p>Enter a Customer ID in the field above to view their complete profile including RFM scores, segment classification, and AI-powered recommendations.</p>
+    <p>Enter a Customer ID in the field above to view their complete profile including RFM scores, segment
+      classification, and AI-powered recommendations.</p>
   </div>
 
   <!-- Sample customers table -->
   <div class="accordion accordion-dark sample-accordion">
     <div class="accordion-item">
       <h2 class="accordion-header">
-        <button class="accordion-button collapsed" data-bs-toggle="collapse"
-                data-bs-target="#sampleCollapse">
+        <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#sampleCollapse">
           <i class="bi bi-table me-2"></i> Browse sample customers to get started
         </button>
       </h2>
@@ -96,7 +88,8 @@
                 <tr class="sample-row" data-cid="{{ s.CustomerID }}">
                   <td class="fw-bold sample-id">{{ s.CustomerID }}</td>
                   <td>
-                    <span class="seg-badge {% if s.Segment == 'VIP' %}seg-vip{% elif s.Segment == 'Regular' %}seg-reg{% else %}seg-risk{% endif %}">
+                    <span
+                      class="seg-badge {% if s.Segment == 'VIP' %}seg-vip{% elif s.Segment == 'Regular' %}seg-reg{% else %}seg-risk{% endif %}">
                       <span class="dot"></span>{{ s.Segment }}
                     </span>
                   </td>
@@ -213,12 +206,18 @@
 
       <div class="mt-3 pt-3 stat-compare-block">
         <div class="stat-compare-title">vs. All Customers (avg)</div>
-        <div class="stat-row"><span class="stat-lbl">Recency — this customer</span><span class="stat-val">{{ customer.recency }} days</span></div>
-        <div class="stat-row"><span class="stat-lbl">Recency — average</span><span class="stat-val stat-muted">{{ customer.avg_recency }} days</span></div>
-        <div class="stat-row"><span class="stat-lbl">Orders — this customer</span><span class="stat-val">{{ customer.frequency }}</span></div>
-        <div class="stat-row"><span class="stat-lbl">Orders — average</span><span class="stat-val stat-muted">{{ customer.avg_frequency }}</span></div>
-        <div class="stat-row"><span class="stat-lbl">Spend — this customer</span><span class="stat-val">{{ customer.monetary }}</span></div>
-        <div class="stat-row"><span class="stat-lbl">Spend — average</span><span class="stat-val stat-muted">{{ customer.avg_monetary }}</span></div>
+        <div class="stat-row"><span class="stat-lbl">Recency — this customer</span><span class="stat-val">{{
+            customer.recency }} days</span></div>
+        <div class="stat-row"><span class="stat-lbl">Recency — average</span><span class="stat-val stat-muted">{{
+            customer.avg_recency }} days</span></div>
+        <div class="stat-row"><span class="stat-lbl">Orders — this customer</span><span class="stat-val">{{
+            customer.frequency }}</span></div>
+        <div class="stat-row"><span class="stat-lbl">Orders — average</span><span class="stat-val stat-muted">{{
+            customer.avg_frequency }}</span></div>
+        <div class="stat-row"><span class="stat-lbl">Spend — this customer</span><span class="stat-val">{{
+            customer.monetary }}</span></div>
+        <div class="stat-row"><span class="stat-lbl">Spend — average</span><span class="stat-val stat-muted">{{
+            customer.avg_monetary }}</span></div>
       </div>
     </div>
   </div>
@@ -259,23 +258,23 @@
 {% endif %}
 <script>
   // Apply all dynamic styles from data-* attributes
-  document.querySelectorAll('[data-bg]').forEach(function(el) {
+  document.querySelectorAll('[data-bg]').forEach(function (el) {
     el.style.background = el.getAttribute('data-bg');
   });
-  document.querySelectorAll('[data-color]').forEach(function(el) {
+  document.querySelectorAll('[data-color]').forEach(function (el) {
     el.style.color = el.getAttribute('data-color');
   });
-  document.querySelectorAll('[data-width]').forEach(function(el) {
+  document.querySelectorAll('[data-width]').forEach(function (el) {
     el.style.width = el.getAttribute('data-width');
   });
-  document.querySelectorAll('[data-border-left]').forEach(function(el) {
+  document.querySelectorAll('[data-border-left]').forEach(function (el) {
     el.style.borderLeft = '3px solid ' + el.getAttribute('data-border-left');
   });
 
   // Sample-table click-to-load
-  document.querySelectorAll('.sample-row').forEach(function(row) {
+  document.querySelectorAll('.sample-row').forEach(function (row) {
     row.style.cursor = 'pointer';
-    row.addEventListener('click', function() {
+    row.addEventListener('click', function () {
       var input = document.getElementById('customerIdInput');
       if (input) { input.value = row.getAttribute('data-cid'); document.getElementById('searchForm').submit(); }
     });

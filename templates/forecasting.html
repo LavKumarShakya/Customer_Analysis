@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Demand Forecasting — Smart Retail Analytics{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-eyebrow">📈 Predictive Intelligence</div>
+  <h1>Demand Forecasting Workbench</h1>
+  <p>Forecast future product demand and optimize inventory levels using multi-model intelligence</p>
+</div>
+
+<!-- Phase 2: Control Row (Top) -->
+<div class="glass-card mb-4 p-4">
+  <form id="forecastForm" class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label text-muted small fw-bold">CATEGORY</label>
+      <select class="form-select bg-dark text-white border-secondary" id="categorySelect">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label text-muted small fw-bold">PRODUCT</label>
+      <select class="form-select bg-dark text-white border-secondary" id="productSelect" required>
+        <option value="" disabled selected>Select a product...</option>
+        {% for prod in products %}
+        <option value="{{ prod }}">{{ prod }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label text-muted small fw-bold">HORIZON</label>
+      <select class="form-select bg-dark text-white border-secondary" id="horizonSelect">
+        <option value="1">1 Month</option>
+        <option value="3" selected>3 Months</option>
+        <option value="6">6 Months</option>
+        <option value="12">12 Months</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label text-muted small fw-bold">MODEL</label>
+      <select class="form-select bg-dark text-white border-secondary" id="modelSelect">
+        <option value="Prophet">Prophet (Meta)</option>
+        <option value="ARIMA">ARIMA</option>
+        <option value="XGBoost">XGBoost</option>
+        <option value="LSTM">LSTM (Deep Learning)</option>
+        <option value="Custom">Custom Model</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-primary w-100 fw-bold py-2" id="generateBtn">
+        <i class="bi bi-magic me-2"></i>Generate
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Phase 2: KPI Row -->
+<div class="row g-3 mb-4" id="kpiRow" style="display: none;">
+  <div class="col-xl-3 col-sm-6">
+    <div class="kpi-card h-100">
+      <div class="kpi-glow" data-bg="#6366f1"></div>
+      <span class="kpi-icon">📦</span>
+      <div class="kpi-label">Projected Volume</div>
+      <div class="kpi-value" id="kpiVolume">—</div>
+      <div class="kpi-delta positive" id="kpiGrowth"><i class="bi bi-arrow-up-short"></i> —</div>
+      <div class="kpi-accent-bar" data-bg="linear-gradient(90deg,#6366f1,transparent)"></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-sm-6">
+    <div class="kpi-card h-100">
+      <div class="kpi-glow" data-bg="#a855f7"></div>
+      <span class="kpi-icon">🎯</span>
+      <div class="kpi-label">Model Confidence</div>
+      <div class="kpi-value" id="kpiConfidence">—</div>
+      <div class="kpi-delta" id="kpiModelStatus">High Precision</div>
+      <div class="kpi-accent-bar" data-bg="linear-gradient(90deg,#a855f7,transparent)"></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-sm-6">
+    <div class="kpi-card h-100">
+      <div class="kpi-glow" data-bg="#10b981"></div>
+      <span class="kpi-icon">⚡</span>
+      <div class="kpi-label">Peak Demand</div>
+      <div class="kpi-value" id="kpiPeakDate">—</div>
+      <div class="kpi-delta" id="kpiPeakVal">— units</div>
+      <div class="kpi-accent-bar" data-bg="linear-gradient(90deg,#10b981,transparent)"></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-sm-6">
+    <div class="kpi-card h-100">
+      <div class="kpi-glow" data-bg="#ef4444"></div>
+      <span class="kpi-icon">🚨</span>
+      <div class="kpi-label">Risk Level</div>
+      <div class="kpi-value" id="kpiRisk">Normal</div>
+      <div class="kpi-delta" id="kpiRiskDetail">No immediate action</div>
+      <div class="kpi-accent-bar" data-bg="linear-gradient(90deg,#ef4444,transparent)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Phase 2: Main Visualization -->
+<div class="row g-4 mb-4">
+  <div class="col-12">
+    <div class="glass-card">
+      <div class="section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-graph-up"></i> Demand Forecast Visualization</span>
+        <div id="loadingSpinner" style="display: none;">
+          <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+          <span class="ms-2 small text-muted">Calculating...</span>
+        </div>
+      </div>
+      <div id="forecastChart" class="chart-wrap" style="height: 450px;">
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+          <div class="text-center">
+            <i class="bi bi-cloud-arrow-up display-4 mb-3"></i>
+            <p>Select a product and click <strong>Generate</strong> to view the forecast.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Phase 2: Insights Row -->
+<div class="row g-4" id="insightsRow" style="display: none;">
+  <div class="col-lg-6">
+    <div class="glass-card h-100">
+      <div class="section-title"><i class="bi bi-shield-exclamation text-warning"></i> Stock Risk Alerts</div>
+      <div id="alertsContainer" class="p-2">
+        <!-- Alerts will be injected here -->
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="glass-card h-100">
+      <div class="section-title"><i class="bi bi-cart-check text-success"></i> Inventory Recommendations</div>
+      <div class="table-responsive p-2">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Recommended Date</th>
+              <th>Action</th>
+              <th>Quantity</th>
+            </tr>
+          </thead>
+          <tbody id="recommendationsTable">
+            <!-- Rows will be injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block page_scripts %}
+<script src="{{ url_for('static', filename='js/forecasting.js') }}"></script>
+{% endblock %}
