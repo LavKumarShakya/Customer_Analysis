@@ -29,6 +29,30 @@
     </div>
   </div>
 
+  <!-- Retailer Profile widget (Multi-user active tenant) -->
+  <div id="sbRetailerWidget" style="padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.65rem; transition: opacity .2s; overflow: hidden; flex-shrink:0;">
+    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--indigo), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: #fff; flex-shrink: 0; box-shadow: 0 4px 12px rgba(99,102,241,0.25);">
+      <i class="bi bi-shop"></i>
+    </div>
+    <div class="sb-widget-text" style="min-width: 0;">
+      <div id="sbRetailerOrg" style="font-size: 0.76rem; font-weight: 700; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Apex Retail Group</div>
+      <div style="font-size: 0.62rem; color: var(--emerald); display: flex; align-items: center; gap: 0.25rem;">
+        <span style="width: 5px; height: 5px; background: var(--emerald); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px var(--emerald);"></span>
+        <span style="white-space: nowrap;">Secure Session</span>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .sidebar.collapsed #sbRetailerWidget {
+      padding: 0.85rem 0;
+      justify-content: center;
+    }
+    .sidebar.collapsed #sbRetailerWidget .sb-widget-text {
+      display: none;
+    }
+  </style>
+
   <!-- Navigation -->
   <div class="sb-section-label">Navigation</div>
   <nav class="sb-nav">
@@ -51,6 +75,11 @@
        class="sb-nav-link {% if active_page == 'analytics' %}active{% endif %}">
       <i class="bi bi-graph-up-arrow"></i>
       <span>Analytics</span>
+    </a>
+    <a href="{{ url_for('update_db') }}"
+       class="sb-nav-link {% if active_page == 'update_db' %}active{% endif %}">
+      <i class="bi bi-database-fill-gear"></i>
+      <span>Update Database</span>
     </a>
   </nav>
 
@@ -81,6 +110,16 @@
     </div>
   </div>
 
+  <div class="sb-divider"></div>
+
+  <!-- Session Logout -->
+  <div class="sb-nav" style="margin-top: auto;">
+    <a href="#" onclick="handleLogout(event)" class="sb-nav-link text-danger" style="gap: .75rem; hover: background: rgba(239,68,68,0.12);">
+      <i class="bi bi-box-arrow-left text-danger"></i>
+      <span>Logout Retailer</span>
+    </a>
+  </div>
+
   <div class="sb-footer">
     Smart Retail Analytics<br>
     <span>Flask · Bootstrap 5 · Plotly</span>
@@ -96,9 +135,11 @@
       <i class="bi bi-list"></i>
     </button>
     <div class="topbar-crumb">
-      <i class="bi bi-house"></i>
-      <span>Smart Retail Analytics</span>
-      <i class="bi bi-chevron-right"></i>
+      <a href="{{ url_for('index') }}" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 0.45rem;">
+        <i class="bi bi-house"></i>
+        <span>Smart Retail Analytics</span>
+      </a>
+      <i class="bi bi-chevron-right" style="margin-left: 0.45rem;"></i>
       <span class="active">{% block breadcrumb %}Dashboard{% endblock %}</span>
     </div>
     <span class="topbar-badge">
@@ -143,6 +184,33 @@
   document.querySelectorAll('.rec-card').forEach((el, i) => {
     el.style.animationDelay = (i * 0.04) + 's';
   });
+
+  /* Session and login handlers */
+  document.addEventListener("DOMContentLoaded", () => {
+    const isLoggedIn = localStorage.getItem('is_logged_in') === 'true';
+    const currentPath = window.location.pathname;
+    
+    if (!isLoggedIn && currentPath !== '/login' && currentPath !== '/') {
+      window.location.href = "{{ url_for('login') }}";
+      return;
+    }
+    
+    if (isLoggedIn) {
+      const org = localStorage.getItem('retailer_org') || "Apex Retail Group";
+      const orgLabel = document.getElementById('sbRetailerOrg');
+      if (orgLabel) {
+        orgLabel.textContent = org;
+      }
+    }
+  });
+
+  function handleLogout(e) {
+    e.preventDefault();
+    localStorage.removeItem('is_logged_in');
+    localStorage.removeItem('retailer_org');
+    localStorage.removeItem('retailer_email');
+    window.location.href = "{{ url_for('login') }}";
+  }
 </script>
 
 {% block page_scripts %}{% endblock %}

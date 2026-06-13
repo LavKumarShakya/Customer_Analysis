@@ -3,16 +3,16 @@
    Bootstrap 5 + Inter font + Plotly charts
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* ── CSS Tokens ─────────────────────────────────────────────── */
 :root {
-  --bg:        #04080f;
-  --bg2:       #060b16;
-  --surf:      rgba(10, 18, 36, 0.90);
-  --surf2:     rgba(14, 24, 46, 0.80);
-  --border:    rgba(255,255,255,0.07);
-  --border2:   rgba(99,102,241,0.30);
+  --bg:        #020617;
+  --bg2:       #040815;
+  --surf:      rgba(10, 18, 36, 0.75);
+  --surf2:     rgba(15, 23, 42, 0.85);
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(99,102,241,0.25);
   --indigo:    #6366f1;
   --purple:    #a855f7;
   --cyan:      #06b6d4;
@@ -66,6 +66,43 @@ body {
 @keyframes slideIn {
   from { opacity: 0; transform: translateX(-16px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes borderRotate {
+  100% { transform: rotate(360deg); }
+}
+@keyframes radialPulse {
+  0%, 100% { transform: scale(1); opacity: 0.15; }
+  50% { transform: scale(1.12); opacity: 0.3; }
+}
+
+.text-gradient-moving {
+  background: linear-gradient(135deg, #f8fafc 10%, var(--indigo) 40%, var(--purple) 70%, #f8fafc 90%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientMove 6s linear infinite;
+}
+
+.glow-spotlight-bg {
+  position: relative;
+  overflow: hidden;
+}
+.glow-spotlight-bg::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 150%; height: 150%;
+  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.08) 0%, transparent 65%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: radialPulse 8s ease-in-out infinite;
+  z-index: 0;
 }
 
 /* ── SIDEBAR ────────────────────────────────────────────────── */
