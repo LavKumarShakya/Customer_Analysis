@@ -12,6 +12,7 @@ Routes:
 import json
 import re
 import warnings
+import sqlite3
 
 import joblib
 import numpy as np
@@ -94,14 +95,34 @@ def _clean_frozenset(val) -> str:
 
 
 def _load_data():
+    conn = sqlite3.connect("database.db")
     try:
-        df_c = pd.read_csv("customer_segments.csv")
+        # Try loading from the database
+        df_c = pd.read_sql_query("SELECT * FROM customer_segments", conn)
+        if "Segments" in df_c.columns:
+            df_c.rename(columns={"Segments": "Segment"}, inplace=True)
         df_c.columns = [c.strip() for c in df_c.columns]
         df_c["CustomerID"] = pd.to_numeric(df_c["CustomerID"], errors="coerce")
         df_c.dropna(subset=["CustomerID"], inplace=True)
         df_c["CustomerID"] = df_c["CustomerID"].astype(int)
-    except FileNotFoundError:
-        df_c = pd.DataFrame()
+    except Exception:
+        # If table doesn't exist, try seeding from CSV
+        try:
+            df_c = pd.read_csv("customer_segments.csv")
+            if "Segments" in df_c.columns:
+                df_c.rename(columns={"Segments": "Segment"}, inplace=True)
+            df_c.columns = [c.strip() for c in df_c.columns]
+            df_c["CustomerID"] = pd.to_numeric(df_c["CustomerID"], errors="coerce")
+            df_c.dropna(subset=["CustomerID"], inplace=True)
+            df_c["CustomerID"] = df_c["CustomerID"].astype(int)
+            # Create the SQLite table from the CSV
+            df_c.to_sql("customer_segments", conn, if_exists="replace", index=False)
+        except Exception:
+            # If both fail, initialize empty DB schema
+            df_c = pd.DataFrame(columns=["CustomerID", "Recency", "Frequency", "Monetary", "Cluster", "Segment"])
+            df_c.to_sql("customer_segments", conn, if_exists="replace", index=False)
+    finally:
+        conn.close()
 
     try:
         df_r = pd.read_csv("recommendation_rules.csv")
@@ -204,6 +225,101 @@ def inject_sidebar_stats():
 @app.route("/")
 def index():
     return render_template("home.html")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ROUTE UPDATE DB
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.route("/update-db", methods=["GET", "POST"])
+def update_db():
+    global DF_CUSTOMERS, DF_RULES, KMEANS_MODEL, NBA_ENGINE
+    message = None
+    if request.method == "POST":
+        action = request.form.get("action")
+        
+        if action == "manual_entry":
+            try:
+                # Extract form data
+                cid = int(request.form.get("customer_id"))
+                rec = float(request.form.get("recency"))
+                freq = float(request.form.get("frequency"))
+                mon = float(request.form.get("monetary"))
+                clust = int(request.form.get("cluster"))
+                seg = request.form.get("segment")
+                
+                # Check valid segment
+                if seg not in ["VIP", "Regular", "At Risk"]:
+                    raise ValueError("Invalid Segment value.")
+                
+                # Get current dataframe from memory
+                df = DF_CUSTOMERS.copy()
+                is_update = cid in df["CustomerID"].values
+                
+                # Update or Append
+                if is_update:
+                    df.loc[df["CustomerID"] == cid, ["Recency", "Frequency", "Monetary", "Cluster", "Segment"]] = [rec, freq, mon, clust, seg]
+                else:
+                    new_row = pd.DataFrame([{
+                        "CustomerID": cid, "Recency": rec, "Frequency": freq,
+                        "Monetary": mon, "Cluster": clust, "Segment": seg
+                    }])
+                    df = pd.concat([df, new_row], ignore_index=True)
+                
+                # Ensure data types
+                df["CustomerID"] = df["CustomerID"].astype(int)
+                
+                # Save to CSV
+                df.to_csv("customer_segments.csv", index=False)
+                
+                # Save to SQLite
+                conn = sqlite3.connect("database.db")
+                df.to_sql("customer_segments", conn, if_exists="replace", index=False)
+                conn.close()
+                
+                # Refresh global state
+                DF_CUSTOMERS, DF_RULES, KMEANS_MODEL = _load_data()
+                NBA_ENGINE = NBAEngine(DF_CUSTOMERS, DF_RULES)
+                
+                message = f"Customer {cid} successfully {'updated' if is_update else 'added'}!"
+            except Exception as e:
+                message = f"Error processing manual entry: {str(e)}"
+                
+        else:
+            # File Upload Logic
+            if "dataset" not in request.files:
+                message = "No file part in the request."
+            else:
+                file = request.files["dataset"]
+                if file.filename == "":
+                    message = "No selected file."
+                elif file and file.filename.endswith(".csv"):
+                    try:
+                        df = pd.read_csv(file)
+                        required_cols = ["CustomerID", "Recency", "Frequency", "Monetary", "Cluster", "Segment"]
+                        missing_cols = [c for c in required_cols if c not in df.columns]
+                        
+                        if missing_cols:
+                            message = f"Invalid CSV. Missing columns: {', '.join(missing_cols)}"
+                        else:
+                            # Save to CSV
+                            df.to_csv("customer_segments.csv", index=False)
+                            
+                            # Save to SQLite
+                            conn = sqlite3.connect("database.db")
+                            df.to_sql("customer_segments", conn, if_exists="replace", index=False)
+                            conn.close()
+                            
+                            # Refresh global state
+                            DF_CUSTOMERS, DF_RULES, KMEANS_MODEL = _load_data()
+                            NBA_ENGINE = NBAEngine(DF_CUSTOMERS, DF_RULES)
+                            
+                            message = "Database updated successfully from file!"
+                    except Exception as e:
+                        message = f"Error processing file: {str(e)}"
+                else:
+                    message = "Please upload a valid CSV file."
+    
+    return render_template("update_db.html", active_page="update_db", message=message)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -744,11 +860,6 @@ def analytics():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     return render_template("login.html")
-
-
-@app.route("/update-db", methods=["GET", "POST"])
-def update_db():
-    return render_template("update_db.html")
 
 
 if __name__ == "__main__":
