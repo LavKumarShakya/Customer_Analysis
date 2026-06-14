@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: retailiq
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers=2 --threads=2 --timeout=120 --bind=0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    # SQLite DB is stored on ephemeral disk — data resets on each deploy.
+    # For persistent data, mount a Render Disk (paid plans) or migrate to PostgreSQL.
+    disk:
+      name: retailiq-db
+      mountPath: /opt/render/project/src/database
+      sizeGB: 1

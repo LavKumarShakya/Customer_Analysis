@@ -395,6 +395,7 @@ def get_all_customers_with_stats(
         "customer_id":       "c.customer_id",
         "name":              "c.name",
         "last_purchase":     "last_purchase",
+        "customer_category": "p.customer_category",
     }
     sort_col = allowed_sorts.get(sort_by, "total_spending")
     direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
@@ -494,3 +495,171 @@ def get_top_customers(n: int = 25, sort_by: str = "total_spending") -> list[dict
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ── Live Dashboard Stats (from DB, always up-to-date) ─────────────────────
+
+def get_live_dashboard_stats() -> dict:
+    """
+    Return live KPIs sourced directly from the SQLite database.
+    These values update immediately whenever a new customer or
+    transaction is added — unlike the static CSV/JSON summary.
+
+    Returns dict with:
+      total_customers (int)
+      total_revenue   (float)
+      total_orders    (int)
+      avg_order_value (float)
+      latest_customer (str | None)
+    """
+    conn = get_connection()
+
+    total_customers = conn.execute(
+        "SELECT COUNT(*) FROM customers"
+    ).fetchone()[0]
+
+    rev_row = conn.execute(
+        "SELECT COALESCE(SUM(purchase_amount), 0), COALESCE(COUNT(*), 0) FROM transactions"
+    ).fetchone()
+    total_revenue = round(float(rev_row[0]), 2)
+    total_orders  = int(rev_row[1])
+    avg_order     = round(total_revenue / total_orders, 2) if total_orders else 0
+
+    latest_row = conn.execute(
+        "SELECT customer_id FROM customers ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    latest_customer = latest_row["customer_id"] if latest_row else None
+
+    conn.close()
+    return {
+        "total_customers":  total_customers,
+        "total_revenue":    total_revenue,
+        "total_orders":     total_orders,
+        "avg_order_value":  avg_order,
+        "latest_customer":  latest_customer,
+    }
+
+
+# ── Live Segment / Category Stats (from DB, always up-to-date) ────────────
+
+_FRIENDLY_TO_ML: dict[str, str] = {
+    "Best Customers":        "VIP",
+    "Repeat Customers":      "Loyal",
+    "Standard Customers":    "Regular",
+    "Customers You May Lose":"At Risk",
+}
+
+_SEG_COLORS_DB: dict[str, str] = {
+    "Best Customers":        "#10b981",
+    "Repeat Customers":      "#3b82f6",
+    "Standard Customers":    "#64748b",
+    "Customers You May Lose":"#ef4444",
+}
+
+_SEG_ACTIONS_DB: dict[str, list] = {
+    "Best Customers":        ["Send VIP loyalty rewards", "Offer early access to new products", "Request testimonials or referrals"],
+    "Repeat Customers":      ["Offer a subscription or bundle deal", "Send personalised thank-you messages", "Provide exclusive member discounts"],
+    "Standard Customers":    ["Send product recommendations", "Run promotional campaigns", "Invite to loyalty programme"],
+    "Customers You May Lose":["Send re-engagement offers", "Follow up with a personal call", "Provide a win-back discount"],
+}
+
+_CATEGORY_ORDER = ["Best Customers", "Repeat Customers", "Standard Customers", "Customers You May Lose"]
+
+
+def get_live_segment_stats() -> dict:
+    """
+    Derive live category breakdown and retention stats directly from SQLite.
+    Uses the LATEST prediction per customer + the transactions table for
+    revenue, so every new customer entry is immediately reflected in
+    the dashboard, sidebar, and all other UI sections.
+
+    Returns dict with:
+      seg_breakdown    list[dict]
+      rev_by_segment   list[dict]
+      at_risk_count    int
+      retention_rate   float
+      sb_total / sb_best / sb_repeat / sb_standard / sb_losing  str
+    """
+    from collections import defaultdict
+
+    conn = get_connection()
+
+    # Latest prediction per customer
+    pred_rows = conn.execute("""
+        SELECT p.customer_id, p.customer_category, p.retention_risk
+        FROM predictions p
+        WHERE p.id IN (
+            SELECT MAX(id) FROM predictions GROUP BY customer_id
+        )
+    """).fetchall()
+
+    # Total revenue per customer
+    rev_rows = conn.execute("""
+        SELECT customer_id, COALESCE(SUM(purchase_amount), 0) AS revenue
+        FROM transactions
+        GROUP BY customer_id
+    """).fetchall()
+    conn.close()
+
+    rev_map: dict[str, float] = {r["customer_id"]: float(r["revenue"]) for r in rev_rows}
+
+    cat_counts:  dict[str, int]   = defaultdict(int)
+    cat_revenue: dict[str, float] = defaultdict(float)
+    risk_counts: dict[str, int]   = defaultdict(int)
+    total = 0
+
+    # ML label → friendly label (handles both old ML-label and new friendly-label rows)
+    _ML_TO_FRIENDLY_LOCAL = {
+        "VIP":     "Best Customers",
+        "Loyal":   "Repeat Customers",
+        "Regular": "Standard Customers",
+        "At Risk": "Customers You May Lose",
+    }
+
+    for row in pred_rows:
+        raw_cat = row["customer_category"] or "Standard Customers"
+        # Normalize: if it's a raw ML label, convert it; otherwise keep as-is
+        cat  = _ML_TO_FRIENDLY_LOCAL.get(raw_cat, raw_cat)
+        risk = row["retention_risk"] or ""
+        cid  = row["customer_id"]
+        cat_counts[cat]  += 1
+        cat_revenue[cat] += rev_map.get(cid, 0.0)
+        risk_counts[risk] += 1
+        total += 1
+
+    seg_breakdown = []
+    for cat in _CATEGORY_ORDER:
+        cnt    = cat_counts.get(cat, 0)
+        ml_seg = _FRIENDLY_TO_ML.get(cat, cat)
+        seg_breakdown.append({
+            "segment":  ml_seg,
+            "category": cat,
+            "count":    cnt,
+            "pct":      round(cnt / total * 100, 1) if total else 0,
+            "color":    _SEG_COLORS_DB.get(cat, "#64748b"),
+            "actions":  _SEG_ACTIONS_DB.get(cat, []),
+        })
+
+    rev_by_segment = [
+        {
+            "category": cat,
+            "Revenue":  round(cat_revenue.get(cat, 0.0), 2),
+            "color":    _SEG_COLORS_DB.get(cat, "#64748b"),
+        }
+        for cat in _CATEGORY_ORDER
+    ]
+
+    at_risk_count  = risk_counts.get("High Retention Risk", 0)
+    retention_rate = round((total - at_risk_count) / total * 100, 1) if total else 0
+
+    return {
+        "seg_breakdown":   seg_breakdown,
+        "rev_by_segment":  rev_by_segment,
+        "at_risk_count":   at_risk_count,
+        "retention_rate":  retention_rate,
+        "sb_total":    f"{total:,}" if total else "—",
+        "sb_best":     f"{cat_counts.get('Best Customers', 0):,}",
+        "sb_repeat":   f"{cat_counts.get('Repeat Customers', 0):,}",
+        "sb_standard": f"{cat_counts.get('Standard Customers', 0):,}",
+        "sb_losing":   f"{cat_counts.get('Customers You May Lose', 0):,}",
+    }

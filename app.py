@@ -27,6 +27,7 @@ GET  /api/dashboard-stats       → JSON KPI stats
 
 import io
 import json
+import os
 import warnings
 from datetime import date
 
@@ -55,6 +56,8 @@ from utils.database import (
     create_user,
     verify_user,
     count_users,
+    get_live_dashboard_stats,
+    get_live_segment_stats,
 )
 from utils.preprocessing import (
     load_customer_segments,
@@ -76,7 +79,12 @@ warnings.filterwarnings("ignore")
 
 # ── App setup ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.secret_key = "retailiq-super-secret-key-change-in-production"
+# Secret key: set the SECRET_KEY env var in Render dashboard.
+# Falls back to a random key for local dev (sessions reset on restart).
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "retailiq-local-dev-key-change-in-production"
+)
 init_db()
 
 # ── Auth Decorator ─────────────────────────────────────────────────────────
@@ -102,19 +110,40 @@ ALL_RISKS      = ["High Retention Risk", "Medium Retention Risk", "Low Retention
 # ── Context processor ─────────────────────────────────────────────────────
 @app.context_processor
 def inject_globals():
-    df = DF_SEGMENTS
-    if df.empty:
+    """Inject sidebar stats drawn from the LIVE database on every request."""
+    try:
+        live = get_live_segment_stats()
+        has_data = live["sb_total"] != "—"
+    except Exception:
+        has_data = False
+        live = {}
+
+    if not has_data:
+        # Fall back to the static CSV counts if the DB has no predictions yet
+        df = DF_SEGMENTS
+        if df.empty:
+            return dict(
+                sb_total="—", sb_best="—", sb_repeat="—",
+                sb_standard="—", sb_losing="—", sb_pairs="—",
+                seg_loaded=False, churn_loaded=False,
+            )
         return dict(
-            sb_total="—", sb_best="—", sb_repeat="—",
-            sb_standard="—", sb_losing="—", sb_pairs="—",
-            seg_loaded=False, churn_loaded=False,
+            sb_total    = f"{len(df):,}",
+            sb_best     = f"{len(df[df['Segment']=='VIP']):,}",
+            sb_repeat   = f"{len(df[df['Segment']=='Loyal']):,}",
+            sb_standard = f"{len(df[df['Segment']=='Regular']):,}",
+            sb_losing   = f"{len(df[df['Segment']=='At Risk']):,}",
+            sb_pairs    = f"{len(DF_RULES):,}" if not DF_RULES.empty else "0",
+            seg_loaded  = seg_loaded(),
+            churn_loaded= churn_loaded(),
         )
+
     return dict(
-        sb_total    = f"{len(df):,}",
-        sb_best     = f"{len(df[df['Segment']=='VIP']):,}",
-        sb_repeat   = f"{len(df[df['Segment']=='Loyal']):,}",
-        sb_standard = f"{len(df[df['Segment']=='Regular']):,}",
-        sb_losing   = f"{len(df[df['Segment']=='At Risk']):,}",
+        sb_total    = live["sb_total"],
+        sb_best     = live["sb_best"],
+        sb_repeat   = live["sb_repeat"],
+        sb_standard = live["sb_standard"],
+        sb_losing   = live["sb_losing"],
         sb_pairs    = f"{len(DF_RULES):,}" if not DF_RULES.empty else "0",
         seg_loaded  = seg_loaded(),
         churn_loaded= churn_loaded(),
@@ -174,7 +203,14 @@ def logout():
 # ══════════════════════════════════════════════════════════════════════════
 @app.route("/")
 def index():
-    summary = load_dashboard_summary()
+    csv_summary = load_dashboard_summary()
+    live_stats  = get_live_dashboard_stats()
+    summary = {
+        **csv_summary,
+        "total_customers": live_stats["total_customers"],
+        "total_revenue":   live_stats["total_revenue"],
+        "total_orders":    live_stats["total_orders"],
+    }
     return render_template("index.html", active_page="home", summary=summary)
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -183,47 +219,62 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    summary  = load_dashboard_summary()
-    df       = DF_SEGMENTS
-    churn_df = DF_CHURN
+    # ── Live KPIs from the database (updates on every new entry) ──────────
+    live_stats = get_live_dashboard_stats()
+    live_seg   = get_live_segment_stats()
 
-    if df.empty:
-        return render_template("dashboard.html", active_page="dashboard",
-                               error=True, summary=summary)
+    csv_summary = load_dashboard_summary()
+    summary = {
+        **csv_summary,
+        "total_customers": live_stats["total_customers"],
+        "total_revenue":   live_stats["total_revenue"],
+        "total_orders":    live_stats["total_orders"],
+    }
 
-    # Category breakdown (friendly labels)
-    seg_counts = df["Segment"].value_counts().reset_index()
-    seg_counts.columns = ["Segment", "Count"]
-    total = len(df)
+    # Use live segment data when the DB has predictions,
+    # otherwise fall back to the static CSV for the charts.
+    has_live_seg = any(s["count"] > 0 for s in live_seg["seg_breakdown"])
 
-    seg_breakdown = []
-    for _, row in seg_counts.iterrows():
-        friendly = SEGMENT_LABEL_MAP.get(row["Segment"], row["Segment"])
-        seg_breakdown.append({
-            "segment":  row["Segment"],
-            "category": friendly,
-            "count":    int(row["Count"]),
-            "pct":      round(row["Count"] / total * 100, 1),
-            "color":    SEGMENT_COLORS.get(friendly, "#64748b"),
-            "actions":  SEGMENT_ACTIONS.get(friendly, []),
-        })
+    if has_live_seg:
+        seg_breakdown  = live_seg["seg_breakdown"]
+        rev_by_segment = live_seg["rev_by_segment"]
+        at_risk_count  = live_seg["at_risk_count"]
+        retention_rate = live_seg["retention_rate"]
+    else:
+        # Fallback: static CSV (only applies when DB has zero predictions)
+        df       = DF_SEGMENTS
+        churn_df = DF_CHURN
+        if df.empty:
+            return render_template("dashboard.html", active_page="dashboard",
+                                   error=True, summary=summary)
 
-    # Retention stats
-    churn_total = len(churn_df) if not churn_df.empty else 0
-    at_risk_count = int(churn_df["Churn"].sum()) if not churn_df.empty and "Churn" in churn_df.columns else 0
-    retention_rate = round((churn_total - at_risk_count) / churn_total * 100, 1) if churn_total else 0
+        seg_counts = df["Segment"].value_counts().reset_index()
+        seg_counts.columns = ["Segment", "Count"]
+        total = len(df)
+        seg_breakdown = []
+        for _, row in seg_counts.iterrows():
+            friendly = SEGMENT_LABEL_MAP.get(row["Segment"], row["Segment"])
+            seg_breakdown.append({
+                "segment":  row["Segment"],
+                "category": friendly,
+                "count":    int(row["Count"]),
+                "pct":      round(row["Count"] / total * 100, 1),
+                "color":    SEGMENT_COLORS.get(friendly, "#64748b"),
+                "actions":  SEGMENT_ACTIONS.get(friendly, []),
+            })
+        churn_total   = len(churn_df) if not churn_df.empty else 0
+        at_risk_count = int(churn_df["Churn"].sum()) if not churn_df.empty and "Churn" in churn_df.columns else 0
+        retention_rate = round((churn_total - at_risk_count) / churn_total * 100, 1) if churn_total else 0
+        rev_by_segment = []
+        for _, row in df.groupby("Segment")["Monetary"].sum().reset_index().iterrows():
+            friendly = SEGMENT_LABEL_MAP.get(row["Segment"], row["Segment"])
+            rev_by_segment.append({
+                "category": friendly,
+                "Revenue":  round(float(row["Monetary"]), 2),
+                "color":    SEGMENT_COLORS.get(friendly, "#64748b"),
+            })
 
-    # Revenue by category
-    rev_by_segment = []
-    for _, row in df.groupby("Segment")["Monetary"].sum().reset_index().iterrows():
-        friendly = SEGMENT_LABEL_MAP.get(row["Segment"], row["Segment"])
-        rev_by_segment.append({
-            "category": friendly,
-            "Revenue":  round(float(row["Monetary"]), 2),
-            "color":    SEGMENT_COLORS.get(friendly, "#64748b"),
-        })
-
-    cluster_rows = DF_CLUSTER.to_dict("records") if not DF_CLUSTER.empty else []
+    cluster_rows     = DF_CLUSTER.to_dict("records") if not DF_CLUSTER.empty else []
     forecast_preview = get_forecast_series(days=30)
 
     return render_template(
@@ -493,12 +544,32 @@ def customer_entry():
             next_id    = generate_next_customer_id()
 
             result = {
-                "customer_id":    cid,
-                "name":           name if mode == "new" else (get_customer_by_id(cid) or {}).get("name", ""),
-                "purchase_amount":purchase_amount,
-                "purchase_date":  pdate,
-                "product":        product,
-                **rfm, **seg, **ch,
+                "customer_id":       cid,
+                "name":              name if mode == "new" else (get_customer_by_id(cid) or {}).get("name", ""),
+                "purchase_amount":   purchase_amount,
+                "purchase_date":     pdate,
+                "product":           product,
+                # RFM metrics
+                "recency":           rfm["recency"],
+                "frequency":         rfm["frequency"],
+                "monetary":          rfm["monetary"],
+                "clv":               rfm["clv"],
+                "avg_order_value":   rfm["avg_order_value"],
+                "last_purchase_date":rfm["last_purchase_date"],
+                # Segment info
+                "cluster":           seg["cluster"],
+                "segment":           seg["segment"],
+                "customer_category": seg["customer_category"],
+                "color":             seg["color"],
+                "badge_class":       seg["badge_class"],
+                "actions":           seg["actions"],       # segment actions (shown in UI)
+                # Churn info
+                "churn_probability": ch["churn_probability"],
+                "churn_risk":        ch["churn_risk"],
+                "retention_risk":    ch["retention_risk"],
+                "churn_pct":         ch["churn_pct"],
+                "risk_badge_class":  ch["badge_class"],    # separate key — no collision
+                "risk_actions":      ch["actions"],
             }
 
         except (ValueError, TypeError) as e:
@@ -854,7 +925,14 @@ def api_forecast():
 @app.route("/api/dashboard-stats")
 @login_required
 def api_dashboard_stats():
-    summary = load_dashboard_summary()
+    csv_summary = load_dashboard_summary()
+    live_stats  = get_live_dashboard_stats()
+    summary = {
+        **csv_summary,
+        "total_customers": live_stats["total_customers"],
+        "total_revenue":   live_stats["total_revenue"],
+        "total_orders":    live_stats["total_orders"],
+    }
     df = DF_SEGMENTS
     seg_dist = {}
     if not df.empty:
@@ -889,11 +967,15 @@ def api_generate_demo_data():
                          (cid, monetary, date.today().isoformat(), 'Demo Import', date.today().isoformat()))
             
             seg = row.get('Segment_x', row.get('Segment_y', 'Regular'))
+            # Normalise to friendly label (consistent with predict_segment output)
+            _seg_map = {'VIP': 'Best Customers', 'Loyal': 'Repeat Customers',
+                        'Regular': 'Standard Customers', 'At Risk': 'Customers You May Lose'}
+            seg_friendly = _seg_map.get(seg, seg)
             risk = row.get('ChurnRisk', 0)
             risk_label = 'High Retention Risk' if risk >= 0.7 else 'Medium Retention Risk' if risk >= 0.4 else 'Low Retention Risk'
             
             c.execute('INSERT INTO predictions (customer_id, customer_category, retention_risk, churn_probability, prediction_time) VALUES (?, ?, ?, ?, ?)',
-                     (cid, seg, risk_label, risk, date.today().isoformat()))
+                     (cid, seg_friendly, risk_label, risk, date.today().isoformat()))
                      
         conn.commit()
         conn.close()
@@ -908,4 +990,6 @@ def page_not_found(_):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    port = int(os.environ.get("PORT", 5000))
+    # debug=True is safe locally; gunicorn (used on Render) ignores this block.
+    app.run(debug=True, port=port, host="0.0.0.0")

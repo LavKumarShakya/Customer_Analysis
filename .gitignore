@@ -19,11 +19,10 @@ build/
 .DS_Store
 Thumbs.db
 
-# Project
-*.log
+# Project — exclude the live DB (ephemeral / mounted disk on Render)
 database/retail.db
-data/dashboard_summary.json
 
-# Keep model artifacts
-!models/*.pkl
+# Keep all data files and model artifacts — Render needs them at build time
 !data/*.csv
+!data/*.json
+!models/*.pkl
